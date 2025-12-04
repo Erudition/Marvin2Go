@@ -1,0 +1,1 @@
+You may wish to update a task, project, or other item in the user couchdb database.  We will add an endpoint for this in the future, but for now you can use the couchdb API to edit items directly.  See [[Database Access]].

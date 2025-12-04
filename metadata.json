@@ -1,0 +1,7 @@
+{
+  "name": "Marvin Go",
+  "description": "A voice-enabled task manager interface for Amazing Marvin, powered by Gemini 2.5 Live API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
