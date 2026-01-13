@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const [fullAccessToken, setFullAccessToken] = useState<string>(() => localStorage.getItem('marvinFullAccessToken') || '7o0b6/c0i+zXgWx5eheuM7Eob7w=');
   
   // Gemini Auth State
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => localStorage.getItem('geminiApiKey') || process.env.API_KEY || '');
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => localStorage.getItem('geminiApiKey') || import.meta.env.VITE_GEMINI_API_KEY || '');
 
   // Sync Credentials State
   const [syncServer, setSyncServer] = useState<string>(() => localStorage.getItem('marvinSyncServer') || 'https://512940bf-6e0c-4d7b-884b-9fc66185836b-bluemix.cloudant.com');
@@ -1386,39 +1386,55 @@ IMPORTANT INSTRUCTION:
         
         {/* Left Sidebar */}
         {leftPanelOpen && (
-          <aside className="w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col flex-shrink-0 absolute md:static h-full z-10 transition-all backdrop-blur-md md:backdrop-blur-none">
-            <div className="px-6 py-5 flex items-center">
-                <Layout className="w-5 h-5 mr-2 text-blue-400" />
-                <span className="font-bold text-lg text-slate-200">Marvin Go</span>
-            </div>
-            <nav className="flex-1 px-4 py-2 space-y-2">
-              {[
-                { id: TaskStatus.INBOX, icon: Inbox, label: 'Inbox', count: tasks.filter(t => t.status === TaskStatus.INBOX && !t.backburner).length },
-                { id: TaskStatus.NEXT, icon: CheckSquare, label: 'Today', count: tasks.filter(t => t.status === TaskStatus.NEXT && !t.backburner).length },
-                { id: TaskStatus.BACKBURNER, icon: CookingPot, label: 'Backburner', count: tasks.filter(t => t.backburner && !t.status.includes('DONE')).length },
-              ].map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as TaskStatus)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
-                    activeTab === item.id 
-                      ? 'bg-blue-600/20 text-blue-400' 
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <item.icon size={20} />
-                    <span className="font-medium">{item.label}</span>
+          <>
+            {/* Mobile Backdrop */}
+            <div 
+              className="absolute inset-0 bg-slate-950/80 z-10 md:hidden backdrop-blur-sm"
+              onClick={() => setLeftPanelOpen(false)}
+            />
+            
+            <aside className="w-64 bg-slate-900/90 border-r border-slate-800 flex flex-col flex-shrink-0 absolute md:static h-full z-20 transition-all backdrop-blur-md md:backdrop-blur-none shadow-2xl md:shadow-none">
+              <div className="px-6 py-5 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Layout className="w-5 h-5 mr-2 text-blue-400" />
+                    <span className="font-bold text-lg text-slate-200">Marvin Go</span>
                   </div>
-                  {item.count > 0 && (
-                    <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">
-                      {item.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </aside>
+                  <button onClick={() => setLeftPanelOpen(false)} className="md:hidden text-slate-400">
+                    <PanelLeftClose size={20} />
+                  </button>
+              </div>
+              <nav className="flex-1 px-4 py-2 space-y-2">
+                {[
+                  { id: TaskStatus.INBOX, icon: Inbox, label: 'Inbox', count: tasks.filter(t => t.status === TaskStatus.INBOX && !t.backburner).length },
+                  { id: TaskStatus.NEXT, icon: CheckSquare, label: 'Today', count: tasks.filter(t => t.status === TaskStatus.NEXT && !t.backburner).length },
+                  { id: TaskStatus.BACKBURNER, icon: CookingPot, label: 'Backburner', count: tasks.filter(t => t.backburner && !t.status.includes('DONE')).length },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as TaskStatus);
+                      if (window.innerWidth < 768) setLeftPanelOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                      activeTab === item.id 
+                        ? 'bg-blue-600/20 text-blue-400' 
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <item.icon size={20} />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {item.count > 0 && (
+                      <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+          </>
         )}
 
         {/* Center */}
