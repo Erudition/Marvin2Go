@@ -1,7 +1,4 @@
 
-
-
-
 import { FunctionDeclaration, Type } from '@google/genai';
 
 export const GEMINI_MODEL = 'gemini-2.5-flash-native-audio-preview-09-2025';
@@ -40,7 +37,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task to move.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task to move.' },
         newParentId: { type: Type.STRING, description: 'The ID of the new parent Project or Category.' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
@@ -53,7 +50,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task to rename.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task to rename.' },
         newTitle: { type: Type.STRING, description: 'The new title for the task.' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
@@ -66,7 +63,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task to delete.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task to delete.' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
       required: ['itemId', 'reason'],
@@ -107,7 +104,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task.' },
         since: { type: Type.STRING, description: 'Required. Time when it was done, e.g. "10m" (ago), "14:30", or "now".' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
@@ -120,7 +117,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The ID of the task.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task.' },
       },
       required: ['itemId'],
     },
@@ -131,7 +128,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The ID of the task.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task.' },
         sessions: { 
           type: Type.ARRAY,
           items: {
@@ -155,7 +152,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task to work on.' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task to work on.' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
       required: ['itemId', 'reason'],
@@ -167,7 +164,7 @@ export const TOOLS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        itemId: { type: Type.STRING, description: 'The exact ID of the task to stop (optional, otherwise stops current).' },
+        itemId: { type: Type.STRING, description: 'The ID or Title of the task to stop (optional, otherwise stops current).' },
         reason: { type: Type.STRING, description: 'Brief reason starting with "you said..." referencing the user input.' },
       },
       required: ['reason'],

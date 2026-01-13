@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { 
@@ -17,6 +18,7 @@ import { ConversationPane } from './components/ConversationPane';
 import { ChangesPane } from './components/ChangesPane';
 import { useLiveClient } from './hooks/useLiveClient';
 import { formatDurationCompact, getCurrentTimeStr, parseNaturalLanguageTime, formatSessionHistory } from './utils/time';
+import { getLevenshteinDistance } from './utils/text';
 import { MarvinClient } from './utils/marvin';
 import { 
   Layout, CheckSquare, Inbox, Calendar as CalendarIcon, Archive, Plus, Mic, MicOff, 
@@ -514,6 +516,7 @@ IMPORTANT INSTRUCTION:
 - 'oldDone' contains titles of older completed projects.
 - When adding a task, guess the 'parentId' from the tree. If it doesn't fit, use 'unassigned'.
 - Guess 'timeEstimate' generously (in ms) if unknown.
+- If a task ID fails to be found in a tool call, try using the exact Title of the task instead.
 `;
 
     const history = transcripts
@@ -574,6 +577,40 @@ IMPORTANT INSTRUCTION:
       reason
     }]);
   }, []);
+
+  // --- Helper: Robust Task Lookup ---
+  const findTask = useCallback((identifier: string): Task | null => {
+      if (!identifier) return null;
+      const normalizedId = identifier.trim();
+      const lowerId = normalizedId.toLowerCase();
+
+      // 1. Exact ID Match
+      const exactId = tasks.find(t => t.id === normalizedId);
+      if (exactId) return exactId;
+
+      // 2. Fuzzy ID Match (Handle hallucinated IDs where chars are dropped)
+      // Only check if identifier looks somewhat like a UUID or Marvin ID (alphanumeric, long)
+      if (normalizedId.length > 10) {
+        const fuzzyId = tasks.find(t => {
+            const dist = getLevenshteinDistance(t.id, normalizedId);
+            return dist < 4; // Allow small errors
+        });
+        if (fuzzyId) {
+            console.log(`[FindTask] Fuzzy ID match: '${identifier}' -> '${fuzzyId.id}' (Dist: ${getLevenshteinDistance(fuzzyId.id, normalizedId)})`);
+            return fuzzyId;
+        }
+      }
+
+      // 3. Exact Title Match (Case insensitive)
+      const exactTitle = tasks.find(t => t.title.toLowerCase() === lowerId);
+      if (exactTitle) return exactTitle;
+
+      // 4. Partial Title Match (High confidence)
+      const partialTitle = tasks.find(t => t.title.toLowerCase().includes(lowerId));
+      if (partialTitle) return partialTitle;
+      
+      return null;
+  }, [tasks]);
 
   // --- Task Actions (Marvin API Wrappers) ---
 
@@ -804,7 +841,7 @@ IMPORTANT INSTRUCTION:
         return { result: `Project "${args.title}" added.` };
 
       case 'moveTask':
-        const taskToMove = tasks.find(t => t.id === args.itemId || t.title.toLowerCase().includes(args.itemId.toLowerCase()));
+        const taskToMove = findTask(args.itemId);
         if (taskToMove) {
             await moveTask(taskToMove.id, args.newParentId, args.reason, 'ai');
             return { result: `Moved "${taskToMove.title}" to new parent.` };
@@ -812,7 +849,7 @@ IMPORTANT INSTRUCTION:
         return { result: "Task not found." };
 
       case 'renameTask':
-        const taskToRename = tasks.find(t => t.id === args.itemId || t.title.toLowerCase().includes(args.itemId.toLowerCase()));
+        const taskToRename = findTask(args.itemId);
         if (taskToRename) {
              await renameTask(taskToRename.id, args.newTitle, args.reason, 'ai');
              return { result: `Task renamed to "${args.newTitle}".` };
@@ -820,7 +857,7 @@ IMPORTANT INSTRUCTION:
         return { result: "Task not found. Make sure you use the exact ID or a unique title part." };
 
       case 'deleteTask':
-        const taskToDelete = tasks.find(t => t.id === args.itemId || t.title.toLowerCase().includes(args.itemId.toLowerCase()));
+        const taskToDelete = findTask(args.itemId);
         if (taskToDelete) {
              await deleteTask(taskToDelete.id, args.reason, 'ai');
              return { result: `Task "${taskToDelete.title}" deleted.` };
@@ -870,9 +907,7 @@ IMPORTANT INSTRUCTION:
         return { result: "No active task timer running.", currentTime: currentTimeContext };
 
       case 'markTaskDone':
-        const taskToUpdate = tasks.find(t => 
-          t.id === args.itemId || t.title.toLowerCase().includes(args.itemId.toLowerCase())
-        );
+        const taskToUpdate = findTask(args.itemId);
         if (!taskToUpdate) return { result: "Task not found." };
         
         // 1. Check existing time if no explicit "since" is provided
@@ -972,9 +1007,7 @@ IMPORTANT INSTRUCTION:
 
 
       case 'startTimer':
-         const taskToStart = tasks.find(t => 
-          t.id === args.itemId || t.title.toLowerCase().includes(args.itemId.toLowerCase())
-        );
+         const taskToStart = findTask(args.itemId);
         if (taskToStart) {
           if (taskToStart.status === TaskStatus.DONE) {
               return { result: "Error: Cannot start timer on a completed task." };
@@ -988,21 +1021,37 @@ IMPORTANT INSTRUCTION:
         return { result: "Task not found." };
 
       case 'stopTimer':
-        if (timer.taskId) {
-            const taskName = tasks.find(t => t.id === timer.taskId)?.title || "Unknown Task";
-            const tId = timer.taskId; 
-            await toggleTimer(tId, args.reason, 'ai');
-            return { result: `Timer stopped for "${taskName}".`, currentTime: currentTimeContext };
+        // If itemId is provided, verify match (or stop generic if no ID but only one running)
+        // If args.itemId is provided, try to find it
+        if (args.itemId) {
+             const taskToStop = findTask(args.itemId);
+             if (taskToStop) {
+                 if (timer.taskId !== taskToStop.id) {
+                     return { result: `Timer is not running for "${taskToStop.title}". Currently running: "${timer.taskId ? (tasks.find(t=>t.id===timer.taskId)?.title || 'Unknown') : 'None'}"` };
+                 }
+                 await toggleTimer(taskToStop.id, args.reason, 'ai');
+                 return { result: `Timer stopped for "${taskToStop.title}".`, currentTime: currentTimeContext };
+             } else {
+                 // ID was provided but not found.
+                 return { result: "Task not found." };
+             }
+        } else {
+            // No itemId provided, stop current
+            if (timer.taskId) {
+                const taskName = tasks.find(t => t.id === timer.taskId)?.title || "Unknown Task";
+                await toggleTimer(timer.taskId, args.reason, 'ai');
+                return { result: `Timer stopped for "${taskName}".`, currentTime: currentTimeContext };
+            }
+            return { result: "No timer running." };
         }
-        return { result: "No timer running." };
       
       case 'getTaskSessions':
-        const taskForSessions = tasks.find(t => t.id === args.itemId);
+        const taskForSessions = findTask(args.itemId);
         if (!taskForSessions) return { result: "Task not found." };
         return { result: `Sessions for "${taskForSessions.title}": ${formatSessionHistory(taskForSessions.times)}` };
 
       case 'updateTaskSessions':
-        const taskToEdit = tasks.find(t => t.id === args.itemId);
+        const taskToEdit = findTask(args.itemId);
         if (!taskToEdit) return { result: "Task not found." };
         
         // Validate sessions
@@ -1030,7 +1079,7 @@ IMPORTANT INSTRUCTION:
       default:
         return { result: "Tool not found." };
     }
-  }, [addTask, addProject, moveTask, tasks, markDone, toggleTimer, timer, deleteTask, renameTask, categories, updateTaskEstimate]);
+  }, [addTask, addProject, moveTask, tasks, markDone, toggleTimer, timer, deleteTask, renameTask, categories, updateTaskEstimate, findTask]);
 
   const { 
     connect, 
